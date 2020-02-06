@@ -11,6 +11,27 @@ import datetime as dt
 import numpy as np
 import pandas as pd
 
+# global functions
+def connectToSQL():
+        engine = create_engine("sqlite:///Resources/hawaii.sqlite")
+        conn = engine.connect()
+
+        # reflect an existing database into a new model
+        Base = automap_base()
+        # reflect the tables
+        Base.prepare(engine, reflect=True)
+        # Save references to each table
+        Measurement = Base.classes.measurement
+        Station = Base.classes.station
+
+        # Create our session (link) from Python to the DB
+        session = Session(engine)
+
+        return Measurement, Station, session, conn
+
+
+
+
 # Create an app, being sure to pass __name__
 app = Flask(__name__)
 
@@ -33,11 +54,27 @@ def precipitation():
     print("Server received request for 'Precipitaion' page...")
     return "Precipitation"
 
+
+
+
 # precipitation route - provide information about the date and precipitations
 @app.route("/api/v1.0/stations")
 def station():
     print("Server received request for 'Stations' page...")
-    return "Stations"
+
+    # connect to database and retrieve tables, session and connection
+    Measurement, Station, session, conn = connectToSQL()
+
+    # parse through all distinct stations in database and store in list
+    station_list = []
+    for value in session.query(Station.station).distinct():
+        station_list.append(value)
+    # return jsonified list of all stations
+    return jsonify(station_list)
+
+
+
+
 
 #### Query dates and temperatures within a year from last data point
 @app.route("/api/v1.0/tobs")
@@ -45,19 +82,7 @@ def tobs():
     print("Server received request for 'tobs' page...")
 
 
-    engine = create_engine("sqlite:///Resources/hawaii.sqlite")
-    conn = engine.connect()
-
-    # reflect an existing database into a new model
-    Base = automap_base()
-    # reflect the tables
-    Base.prepare(engine, reflect=True)
-    # Save references to each table
-    Measurement = Base.classes.measurement
-    Station = Base.classes.station
-
-    # Create our session (link) from Python to the DB
-    session = Session(engine)
+    Measurement, Station, session, conn = connectToSQL()
 
     # pull all data into DataFrame so we can quickly calculate the max date
     data = pd.read_sql("SELECT * FROM measurement", conn)
